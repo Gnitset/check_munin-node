@@ -13,6 +13,7 @@ class MuninNode(Object):
 		self._hostport=hostport
 		self._s=socket.socket()
 		self._s.setblocking(False)
+		self.data=dict()
 
 	def connect(self):
 		raise NotImplemented
@@ -21,23 +22,32 @@ class MuninNode(Object):
 		self.connect()
 		self._s.send("%s\n"%command)
 		data=[]
-		done=False:
+		done=False
 		while not done:
 			(r,w,e)=select.select([self._s],[],[self._s],60)
 			if self._s in e:
 				print "socket in error :("
 			if self._s in r:
-				data.append(self._s.recv(1024))
-				if data[-1].endswith("\n.\n"):
+				r_data=self._s.recv(1024)
+				if len(r_data) < 3:
+					try:
+						cmp_data=data[-1]+r_data
+					except IndexError:
+						cmp_data=r_data
+				if cmp_data.endswith("\n.\n"):
 					done=True
+				data.append(r_data)
 		return ''.join(data)
 
-	def parsedata(self, data):
-		parsed=dict()
+	def parsedata(self, data, parsed=dict()):
 		for line in data.split("\n"):
-			if line.startswith("# "):
+			if line[0]=="#":
 				continue
-			mnkey,value=line.strip().split(".",1)
+			try:
+				mnkey,value=line.strip().split(".",1)
+			except ValueError:
+				mnkey="graph"
+				value=line.strip()
 			mntype,mnvalue=value.strip().split(" ",1)
 			if not parsed.has_key(mnkey):
 				parsed[mnkey]=dict()
@@ -45,10 +55,12 @@ class MuninNode(Object):
 		return parsed
 
 	def config(self, module):
-		raise NotImplemented
+		data=self.getdata("config %s\n"%module)
+		pdata=self.parsedata(data, self.data)
 
 	def fetch(self, module):
-		raise NotImplemented
+		data=self.getdata("fetch %s\n"%module)
+		pdata=self.parsedata(data, self.data)
 
 if __name__ == "__main__":
 	parser=optparse.OptionParser("usage: %prog [options]")
