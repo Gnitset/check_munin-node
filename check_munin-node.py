@@ -182,7 +182,7 @@ if __name__ == "__main__":
 				if ke.message == "value":
 					continue
 		if not (output["critical"] or output["warning"] or output["ok"]) and p_exception:
-			raise Exception("Should have threshold(s) when getting here", **p_exception)
+			raise Exception("Should have threshold(s) when getting here", *p_exception)
 		for level in ("critical","warning","ok"):
 			for row in output[level]:
 				print row
