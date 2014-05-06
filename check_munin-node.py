@@ -88,7 +88,10 @@ class MuninNode(object):
 			try:
 				mntype, mnvalue = value.strip().split(" ",1)
 			except ValueError:
-				print "ve,",value
+				if mnkey == "graph":
+					# like I said, ignore unnecessary data
+					continue
+				print "UNKNOWN, ValueError, '%s'"%value
 				sys.exit(EXIT_UNKNOWN)
 			if not parsed.has_key(mnkey):
 				parsed[mnkey] = dict()
