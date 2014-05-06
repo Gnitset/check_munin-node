@@ -41,25 +41,31 @@ class MuninNode(object):
 				print "socket in error :("
 				sys.exit(EXIT_UNKNOWN)
 			if not r and not w and not e:
-				print "timeout"
+				# we probably failed to detect that we got all data
 				break
 			if self._s in w:
 				wlen = self._s.send(send_pipe[0])
+				# did we succeed in sending all data
 				if wlen == len(send_pipe[0]):
 					del send_pipe[0]
+				# save the data not sent to try again when possible
 				else:
 					send_pipe[0] = send_pipe[0][wlen:]
 			if self._s in r:
 				r_data = self._s.recv(1024)
 				f_arr = list()
+				# clean up comments from data received from munin-node
 				for row in (extra_data+r_data).split("\n"):
 					if not row or row[0] != "#":
 						f_arr.append(row)
+				# did we get a broken line?
 				if len(f_arr[-1]):
 					extra_data = f_arr[-1]
 					del f_arr[-1]
+				# did we get all the data?
 				elif "\n".join(f_arr).endswith(end_str):
 					done = True
+				# cleanup rows received
 				for row in f_arr:
 					srow = row.strip(".\n")
 					if not srow:
@@ -76,6 +82,7 @@ class MuninNode(object):
 			try:
 				mnkey, value = line.strip().split(".",1)
 			except ValueError:
+				# if theres no . in a line it is probably graph-info, and almost certanly unnecessary
 				mnkey = "graph"
 				value = line.strip()
 			try:
@@ -141,29 +148,29 @@ if __name__ == "__main__":
 	try:
 		mn.config(opts.module)
 		mn.fetch(opts.module)
-		reti = EXIT_OK
+		ret = EXIT_OK
 		output = {"critical": list(), "warning": list(), "ok": list()}
-		for k,v in mn.data.iteritems():
-			if k == "graph":
+		for basename, config in mn.data.iteritems():
+			if basename == "graph":
 				continue
-			check = check_level(v,"critical")
+			check = check_level(config, "critical")
 			if check:
-				output["critical"].append("Critical, %(label)s, %(value)s outside threshold c(%(critical)s)"%v)
+				output["critical"].append("Critical, %(label)s, %(value)s outside threshold c(%(critical)s)"%config)
 				if ret < EXIT_CRITICAL: ret = EXIT_CRITICAL
 				continue
-			check = check_level(v,"warning")
+			check = check_level(config, "warning")
 			if check:
-				output["warning"].append("Warning, %(label)s, %(value)s outside threshold w(%(warning)s)"%v)
+				output["warning"].append("Warning, %(label)s, %(value)s outside threshold w(%(warning)s)"%config)
 				if ret < EXIT_WARNING: ret = EXIT_WARNING
 				continue
-			if v.has_key("critical") and v.has_key("warning"):
-				output["ok"].append("OK, %(label)s, %(value)s inside thresholds c(%(critical)s), w(%(warning)s)"%v)
-			elif v.has_key("critical"):
-				output["ok"].append("OK, %(label)s, %(value)s inside thresholds c(%(critical)s)"%v)
-			elif v.has_key("warning"):
-				output["ok"].append("OK, %(label)s, %(value)s inside thresholds w(%(warning)s)"%v)
+			if config.has_key("critical") and config.has_key("warning"):
+				output["ok"].append("OK, %(label)s, %(value)s inside thresholds c(%(critical)s), w(%(warning)s)"%config)
+			elif config.has_key("critical"):
+				output["ok"].append("OK, %(label)s, %(value)s inside thresholds c(%(critical)s)"%config)
+			elif config.has_key("warning"):
+				output["ok"].append("OK, %(label)s, %(value)s inside thresholds w(%(warning)s)"%config)
 			else:
-				raise Exception("Should have threshold(s) when getting here",k,v)
+				raise Exception("Should have threshold(s) when getting here", basename, config)
 		for level in ("critical","warning","ok"):
 			for row in output[level]:
 				print row
