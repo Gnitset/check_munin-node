@@ -117,7 +117,7 @@ def parse_level(level):
 		return map(float,level.split(":"))
 
 def check_level(data, level):
-	if level not in data or not data[level]:
+	if level not in data or "value" not in data or not data[level]:
 		return None
 	value=float(data["value"])
 	minl, maxl = parse_level(data[level])
