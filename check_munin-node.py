@@ -179,5 +179,5 @@ if __name__ == "__main__":
 				print row
 		sys.exit(ret)
 	except Exception as e:
-		print "UNKONWN, %s %s"%(type(e), e)
+		print "UNKNOWN, %s %s"%(type(e), e)
 		sys.exit(EXIT_UNKNOWN)
