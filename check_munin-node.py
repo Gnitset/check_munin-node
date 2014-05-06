@@ -153,6 +153,7 @@ if __name__ == "__main__":
 		mn.fetch(opts.module)
 		ret = EXIT_OK
 		output = {"critical": list(), "warning": list(), "ok": list()}
+		p_exception = set()
 		for basename, config in mn.data.iteritems():
 			if basename == "graph":
 				continue
@@ -173,7 +174,9 @@ if __name__ == "__main__":
 			elif config.has_key("warning"):
 				output["ok"].append("OK, %(label)s, %(value)s inside thresholds w(%(warning)s)"%config)
 			else:
-				raise Exception("Should have threshold(s) when getting here", basename, config)
+				p_exception.add(("Should have threshold(s) when getting here", str(basename), str(config)))
+		if not (output["critical"] or output["warning"] or output["ok"]) and p_exception:
+			raise Exception("Should have threshold(s) when getting here", **p_exception)
 		for level in ("critical","warning","ok"):
 			for row in output[level]:
 				print row
