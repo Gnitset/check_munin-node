@@ -82,7 +82,7 @@ class MuninNode(object):
 			try:
 				mnkey, value = line.strip().split(".",1)
 			except ValueError:
-				# if theres no . in a line it is probably graph-info, and almost certanly unnecessary
+				# if theres no . in a line it is probably graph-info, and almost certainly unnecessary
 				mnkey = "graph"
 				value = line.strip()
 			try:
