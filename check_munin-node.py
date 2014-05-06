@@ -92,6 +92,28 @@ class MuninNode(object):
 		pdata=self.parsedata(data, self.data)
 		return pdata
 
+def parse_level(level):
+	if ":" not in level:
+		return (None, float(level))
+	if level[0] == ":":
+		return (None, float(level[1:]))
+	if level[-1] == ":":
+		return (float(level[:-1]), None)
+	else:
+		return map(float,level.split(":"))
+
+def check_level(data, level):
+	if level not in data or not data[level]:
+		return None
+	value=float(data["value"])
+	(minl,maxl)=parse_level(data[level])
+	if minl and value < minl:
+		return -1
+	elif maxl and value > maxl:
+		return 1
+	else:
+		return 0
+
 if __name__ == "__main__":
 	parser=optparse.OptionParser("usage: %prog [options]")
 	parser.add_option("-H", "--host", dest="host", default="localhost")
@@ -105,30 +127,43 @@ if __name__ == "__main__":
 
 	if opts.listmodules:
 		print "\n".join(mn.listmodules())
-		sys.exit(4)
+		sys.exit(3)
 
 	if not opts.module:
 		sys.stderr.write("ERROR: No module selected\n");
 		sys.stderr.flush()
 		sys.exit(3)
 
-	mn.config(opts.module)
-	mn.fetch(opts.module)
-	ret=0
-	for k,v in mn.data.iteritems():
-		if k == "graph" or not (v.has_key("warning") or v.has_key("critical")):
-			continue
-		if v.has_key("critical"):
-			if ":" in v["critical"]:
-				print "nooooo"
-			elif float(v["value"]) >= float(v["critical"]):
-				print "Critical, %(label)s, %(value)s over threshold %(critical)s"%v
-				ret=2
+	try:
+		mn.config(opts.module)
+		mn.fetch(opts.module)
+		ret=0
+		output={"critical":list(), "warning":list(), "ok":list()}
+		for k,v in mn.data.iteritems():
+			if k == "graph":
 				continue
-		if v.has_key("warning"):
-			if ":" in v["warning"]:
-				print "nooooo"
-			elif float(v["value"]) >= float(v["warning"]):
-				print "Warning, %(label)s, %(value)s over threshold %(warning)s"%v
-				ret=2
+			check=check_level(v,"critical")
+			if check:
+				output["critical"].append("Critical, %(label)s, %(value)s outside threshold c(%(critical)s)"%v)
+				if ret < 2: ret=2
 				continue
+			check=check_level(v,"warning")
+			if check:
+				output["warning"].append("Warning, %(label)s, %(value)s outside threshold w(%(warning)s)"%v)
+				if ret < 1: ret=1
+				continue
+			if v.has_key("critical") and v.has_key("warning"):
+				output["ok"].append("OK, %(label)s, %(value)s inside thresholds c(%(critical)s), w(%(warning)s)"%v)
+			elif v.has_key("critical"):
+				output["ok"].append("OK, %(label)s, %(value)s inside thresholds c(%(critical)s)"%v)
+			elif v.has_key("warning"):
+				output["ok"].append("OK, %(label)s, %(value)s inside thresholds w(%(warning)s)"%v)
+			else:
+				raise Exception("Should have threshold(s) when getting here",k,v)
+		for level in ("critical","warning","ok"):
+			for row in output[level]:
+				print row
+		sys.exit(ret)
+	except Exception as e:
+		print "UNKONWN, %s %s"%(type(e), e)
+		sys.exit(3)
