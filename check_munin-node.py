@@ -7,6 +7,7 @@ import select
 import optparse
 import sys
 import os
+import traceback
 
 EXIT_UNKNOWN, EXIT_CRITICAL, EXIT_WARNING, EXIT_OK = 3, 2, 1, 0
 
@@ -77,7 +78,7 @@ class MuninNode(object):
 	def listmodules(self):
 		return self.getdata("list\n", "\n")[0].split(" ")
 
-	def parsedata(self, data, parsed=dict()):
+	def parsedata(self, data, parsed):
 		for line in data:
 			try:
 				mnkey, value = line.strip().split(".",1)
@@ -117,9 +118,9 @@ def parse_level(level):
 		return map(float,level.split(":"))
 
 def check_level(data, level):
-	if level not in data or "value" not in data or not data[level]:
+	if level not in data or not data[level]:
 		return None
-	value=float(data["value"])
+	value = float(data["value"])
 	minl, maxl = parse_level(data[level])
 	if minl and value < minl:
 		return -1
@@ -157,24 +158,29 @@ if __name__ == "__main__":
 		for basename, config in mn.data.iteritems():
 			if basename == "graph":
 				continue
-			check = check_level(config, "critical")
-			if check:
-				output["critical"].append("Critical, %(label)s, %(value)s outside threshold c(%(critical)s)"%config)
-				if ret < EXIT_CRITICAL: ret = EXIT_CRITICAL
-				continue
-			check = check_level(config, "warning")
-			if check:
-				output["warning"].append("Warning, %(label)s, %(value)s outside threshold w(%(warning)s)"%config)
-				if ret < EXIT_WARNING: ret = EXIT_WARNING
-				continue
-			if config.has_key("critical") and config.has_key("warning"):
-				output["ok"].append("OK, %(label)s, %(value)s inside thresholds c(%(critical)s), w(%(warning)s)"%config)
-			elif config.has_key("critical"):
-				output["ok"].append("OK, %(label)s, %(value)s inside thresholds c(%(critical)s)"%config)
-			elif config.has_key("warning"):
-				output["ok"].append("OK, %(label)s, %(value)s inside thresholds w(%(warning)s)"%config)
-			else:
-				p_exception.add(("Should have threshold(s) when getting here", str(basename), str(config)))
+			try:
+				check = check_level(config, "critical")
+				if check:
+					output["critical"].append("Critical, %(label)s, %(value)s outside threshold c(%(critical)s)"%config)
+					if ret < EXIT_CRITICAL: ret = EXIT_CRITICAL
+					continue
+				check = check_level(config, "warning")
+				if check:
+					output["warning"].append("Warning, %(label)s, %(value)s outside threshold w(%(warning)s)"%config)
+					if ret < EXIT_WARNING: ret = EXIT_WARNING
+					continue
+				if config.has_key("critical") and config.has_key("warning"):
+					output["ok"].append("OK, %(label)s, %(value)s inside thresholds c(%(critical)s), w(%(warning)s)"%config)
+				elif config.has_key("critical"):
+					output["ok"].append("OK, %(label)s, %(value)s inside thresholds c(%(critical)s)"%config)
+				elif config.has_key("warning"):
+					output["ok"].append("OK, %(label)s, %(value)s inside thresholds w(%(warning)s)"%config)
+				else:
+					p_exception.add(("Should have threshold(s) when getting here", str(basename), str(config)))
+			except KeyError as ke:
+				# no value in result from munin-node
+				if ke.message == "value":
+					continue
 		if not (output["critical"] or output["warning"] or output["ok"]) and p_exception:
 			raise Exception("Should have threshold(s) when getting here", **p_exception)
 		for level in ("critical","warning","ok"):
@@ -183,4 +189,5 @@ if __name__ == "__main__":
 		sys.exit(ret)
 	except Exception as e:
 		print "UNKNOWN, %s %s"%(type(e), e)
+		traceback.print_exc()
 		sys.exit(EXIT_UNKNOWN)
