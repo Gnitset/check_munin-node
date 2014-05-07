@@ -102,7 +102,7 @@ def check_level(data, level):
 	if level not in data or not data[level]:
 		return None
 	value = float(data["value"])
-	minl, maxl = parse_level(data[level])
+	minl, maxl = parse_level(data[level].strip(" "))
 	if minl and value < minl:
 		return -1
 	elif maxl and value > maxl:
