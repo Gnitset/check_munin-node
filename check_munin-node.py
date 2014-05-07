@@ -77,6 +77,17 @@ class MuninNode(object):
 		data = self.getdata("config %s\nfetch %s"%(module,module))
 		self.parsedata(data, self.data)
 
+	def override_levels(self, overrides):
+		for override in overrides:
+			try:
+				name, value = override.split(".", 1)
+				key, level = value.split("=", 1)
+			except Exception as e:
+				raise Exception("Syntax error in overrides")
+			if not self.data.has_key(name):
+				raise Exception("Override not possible, nonexsisten path")
+			self.data[name][key]=level
+
 def parse_level(level):
 	if ":" not in level:
 		return (None, float(level))
@@ -100,7 +111,7 @@ def check_level(data, level):
 		return 0
 
 if __name__ == "__main__":
-	parser = optparse.OptionParser("usage: %prog [options]")
+	parser = optparse.OptionParser("usage: %prog [options] [level overrides]")
 	parser.add_option("-H", "--host", dest="host", default="localhost")
 	parser.add_option("-p", "--port", dest="port", default=4949, type="int")
 	parser.add_option("-M", "--module", dest="module")
@@ -122,6 +133,7 @@ if __name__ == "__main__":
 
 	try:
 		mn.fetchall(opts.module)
+		mn.override_levels(rest)
 		ret = EXIT_OK
 		output = {"critical": list(), "warning": list(), "ok": list()}
 		p_exception = set()
