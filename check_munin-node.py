@@ -150,8 +150,11 @@ if __name__ == "__main__":
 				# no value in result from munin-node
 				if ke.message == "value":
 					continue
-		if not (output["critical"] or output["warning"] or output["ok"]) and p_exception:
-			raise Exception("Should have threshold(s) when getting here", *p_exception)
+		if not (output["critical"] or output["warning"] or output["ok"]):
+			if p_exception:
+				raise Exception("Should have threshold(s) when getting here", *p_exception)
+			else:
+				raise Exception("No such module")
 		for level in ("critical","warning","ok"):
 			for row in output[level]:
 				print row
