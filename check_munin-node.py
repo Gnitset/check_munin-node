@@ -106,6 +106,7 @@ if __name__ == "__main__":
 	parser.add_option("-M", "--module", dest="module")
 	parser.add_option("-S", "--sub-module", dest="sub_module", default=None)
 	parser.add_option("-L", "--list", dest="listmodules", default=False, action="store_true")
+	parser.add_option("-d", "--debug", dest="debug", default=False, action="store_true")
 	opts, rest = parser.parse_args(sys.argv[1:])
 
 	mn = MuninNode((opts.host,opts.port))
@@ -160,6 +161,7 @@ if __name__ == "__main__":
 				print row
 		sys.exit(ret)
 	except Exception as e:
-		print "UNKNOWN, %s %s"%(type(e), e)
-		traceback.print_exc()
+		print "UNKNOWN, %s"%(e)
+		if opts.debug:
+			traceback.print_exc()
 		sys.exit(EXIT_UNKNOWN)
