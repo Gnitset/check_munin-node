@@ -7,6 +7,7 @@ import select
 import optparse
 import sys
 import os
+import time
 import traceback
 
 EXIT_UNKNOWN, EXIT_CRITICAL, EXIT_WARNING, EXIT_OK = 3, 2, 1, 0
@@ -16,67 +17,40 @@ class MuninNode(object):
 		self._hostport = hostport
 		self.data = dict()
 
-	def connect(self):
-		self._s = socket.socket()
-		self._s.connect(self._hostport)
-		self._s.setblocking(False)
-
-	def disconnect(self):
-		self._s.send("quit\n")
-		self._s.shutdown(socket.SHUT_RDWR)
-		self._s.close()
-
-	def getdata(self, command, end_str = "\n.\n"):
-		self.connect()
-		send_pipe = list(["%s"%command])
-		extra_data = ""
-		done = False
-		rows = []
-		while not done:
-			if send_pipe:
-				write_socks = [self._s]
+	def getdata(self, command):
+		s = socket.socket()
+		s.connect(self._hostport)
+		s.send("%s\nquit\n"%command)
+		filtered_rows = list()
+		buf = s.recv(1024)
+		broken_line = ""
+		while True:
+			# split the received data and previously broken lines by newline
+			s_buf = (broken_line + buf).split("\n")
+			# did we get a broken line?
+			if s_buf[-1]:
+				broken_line = s_buf[-1]
+				del s_buf[-1]
 			else:
-				write_socks = []
-			(r, w, e)=select.select([self._s], write_socks, [self._s], 3)
-			if self._s in e:
-				print "socket in error :("
-				sys.exit(EXIT_UNKNOWN)
-			if not r and not w and not e:
-				# we probably failed to detect that we got all data
+				broken_line = ""
+			# clean up comments from data received from munin-node
+			for row in s_buf:
+				clean_row = row.strip(" .")
+				if not (not clean_row or clean_row[0] == "#"):
+					filtered_rows.append(clean_row)
+			# read more data
+			buf = s.recv(1024)
+			if buf:
+				continue
+			time.sleep(0.1)
+			buf = s.recv(1024)
+			if not buf:
 				break
-			if self._s in w:
-				wlen = self._s.send(send_pipe[0])
-				# did we succeed in sending all data
-				if wlen == len(send_pipe[0]):
-					del send_pipe[0]
-				# save the data not sent to try again when possible
-				else:
-					send_pipe[0] = send_pipe[0][wlen:]
-			if self._s in r:
-				r_data = self._s.recv(1024)
-				f_arr = list()
-				# clean up comments from data received from munin-node
-				for row in (extra_data+r_data).split("\n"):
-					if not row or row[0] != "#":
-						f_arr.append(row)
-				# did we get a broken line?
-				if len(f_arr[-1]):
-					extra_data = f_arr[-1]
-					del f_arr[-1]
-				# did we get all the data?
-				elif "\n".join(f_arr).endswith(end_str):
-					done = True
-				# cleanup rows received
-				for row in f_arr:
-					srow = row.strip(".\n")
-					if not srow:
-						continue
-					rows.append(srow)
-		self.disconnect()
-		return rows
+		s.close()
+		return filtered_rows
 
 	def listmodules(self):
-		return self.getdata("list\n", "\n")[0].split(" ")
+		return self.getdata("list")[0].split(" ")
 
 	def parsedata(self, data, parsed):
 		for line in data:
@@ -99,12 +73,8 @@ class MuninNode(object):
 			parsed[mnkey][mntype] = mnvalue
 		return parsed
 
-	def config(self, module):
-		data = self.getdata("config %s\n"%module)
-		self.parsedata(data, self.data)
-
-	def fetch(self, module):
-		data = self.getdata("fetch %s\n"%module)
+	def fetchall(self, module):
+		data = self.getdata("config %s\nfetch %s"%(module,module))
 		self.parsedata(data, self.data)
 
 def parse_level(level):
@@ -150,8 +120,7 @@ if __name__ == "__main__":
 		sys.exit(EXIT_UNKNOWN)
 
 	try:
-		mn.config(opts.module)
-		mn.fetch(opts.module)
+		mn.fetchall(opts.module)
 		ret = EXIT_OK
 		output = {"critical": list(), "warning": list(), "ok": list()}
 		p_exception = set()
