@@ -85,7 +85,7 @@ class MuninNode(object):
 			except Exception as e:
 				raise Exception("Syntax error in overrides")
 			if not self.data.has_key(name):
-				raise Exception("Override not possible, nonexsisten path")
+				raise Exception("Override not possible, nonexistent path")
 			self.data[name][key]=level
 
 def parse_level(level):
