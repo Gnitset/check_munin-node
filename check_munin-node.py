@@ -115,7 +115,6 @@ if __name__ == "__main__":
 	parser.add_option("-H", "--host", dest="host", default="localhost")
 	parser.add_option("-p", "--port", dest="port", default=4949, type="int")
 	parser.add_option("-M", "--module", dest="module")
-	parser.add_option("-S", "--sub-module", dest="sub_module", default=None)
 	parser.add_option("-L", "--list", dest="listmodules", default=False, action="store_true")
 	parser.add_option("-d", "--debug", dest="debug", default=False, action="store_true")
 	opts, rest = parser.parse_args(sys.argv[1:])
