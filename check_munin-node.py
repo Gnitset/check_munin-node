@@ -13,12 +13,16 @@ import traceback
 EXIT_UNKNOWN, EXIT_CRITICAL, EXIT_WARNING, EXIT_OK = 3, 2, 1, 0
 
 class MuninNode(object):
-	def __init__(self, hostport):
+	def __init__(self, hostport, ipv6=False):
 		self._hostport = hostport
+		self._ipv6 = ipv6
 		self.data = dict()
 
 	def getdata(self, command):
-		s = socket.socket()
+		if self._ipv6:
+			s = socket.socket(socket.AF_INET6)
+		else:
+			s = socket.socket()
 		s.connect(self._hostport)
 		s.send("%s\nquit\n"%command)
 		filtered_rows = list()
@@ -117,9 +121,10 @@ if __name__ == "__main__":
 	parser.add_option("-M", "--module", dest="module")
 	parser.add_option("-L", "--list", dest="listmodules", default=False, action="store_true")
 	parser.add_option("-d", "--debug", dest="debug", default=False, action="store_true")
+	parser.add_option("-6", "--ipv6", dest="ipv6", default=False, action="store_true")
 	opts, rest = parser.parse_args(sys.argv[1:])
 
-	mn = MuninNode((opts.host,opts.port))
+	mn = MuninNode((opts.host,opts.port), opts.ipv6)
 
 	if opts.listmodules:
 		print "\n".join(mn.listmodules())
