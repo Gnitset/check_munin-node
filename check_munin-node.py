@@ -13,19 +13,31 @@ import traceback
 EXIT_UNKNOWN, EXIT_CRITICAL, EXIT_WARNING, EXIT_OK = 3, 2, 1, 0
 
 class MuninNode(object):
-	def __init__(self, hostport, ipv6=False):
-		self._host, self._port = hostport
-		self._ipv6 = ipv6
-		self.data = dict()
-
-	def getdata(self, command):
-		if self._ipv6:
+	def __init__(self, host, port, ipv6=False):
+		if ipv6:
 			socket_family = socket.AF_INET6
 		else:
 			socket_family = socket.AF_INET
-		s = socket.socket(socket_family)
-		hostport = socket.getaddrinfo(self._host, self._port, socket_family, socket.SOCK_STREAM)[0][4]
-		s.connect(hostport)
+		self._s = socket.socket(socket_family)
+		self._hostport = socket.getaddrinfo(host, port, socket_family, socket.SOCK_STREAM)[0][4]
+		self.data = dict()
+
+	def enable_tls(ca, cert, key):
+		import ssl
+		context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+		context.options |= ssl.OP_NO_SSLv2
+		context.options |= ssl.OP_NO_SSLv3
+		context.verify_mode = ssl.CERT_REQUIRED
+		context.check_hostname = True
+
+		self._s = context.wrap_socket(self._s,
+		                              server_hostname = self._hostport[0],
+					      ca_certs = ca,
+					      certfile = cert,
+					      keyfile = key)
+
+	def getdata(self, command):
+		s.connect(self._hostport)
 		s.send("%s\nquit\n"%command)
 		filtered_rows = list()
 		buf = s.recv(1024)
@@ -124,9 +136,13 @@ if __name__ == "__main__":
 	parser.add_option("-L", "--list", dest="listmodules", default=False, action="store_true")
 	parser.add_option("-d", "--debug", dest="debug", default=False, action="store_true")
 	parser.add_option("-6", "--ipv6", dest="ipv6", default=False, action="store_true")
+	parser.add_option("-t", "--tls", dest="tls", default=False, action="store_true")
+	parser.add_option("--cacert", dest="cacert")
+	parser.add_option("--cert", dest="cert")
+	parser.add_option("--key", dest="key")
 	opts, rest = parser.parse_args(sys.argv[1:])
 
-	mn = MuninNode((opts.host,opts.port), opts.ipv6)
+	mn = MuninNode(opts.host, opts.port, opts.ipv6)
 
 	if opts.listmodules:
 		print "\n".join(mn.listmodules())
@@ -136,6 +152,10 @@ if __name__ == "__main__":
 		sys.stderr.write("ERROR: No module selected\n");
 		sys.stderr.flush()
 		sys.exit(EXIT_UNKNOWN)
+
+	if opts.tls:
+		key = opts.key or opts.cert
+		mn.enable_tls(opts.cacert, opts.cert, key)
 
 	try:
 		mn.fetchall(opts.module)
